@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>茶聚 CHA'GE 單機版訂購系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        // --- 菜單數據 ---
+        const MENU_DATA = [
+            { category: "香片綠茶", items: [{ name: "香片姍姍", prices: { M: 0, L: 35 } }, { name: "香片奶綠", prices: { M: 45, L: 55 } }, { name: "香片釀梅綠", prices: { M: 0, L: 55 } }, { name: "香片葡萄柚綠", prices: { M: 55, L: 65 } }, { name: "香片凍檸綠", prices: { M: 0, L: 55 } }, { name: "香片鮮奶綠", prices: { M: 55, L: 65 } }, { name: "香片玫瑰奶綠", prices: { M: 0, L: 70 } }]},
+            { category: "原茶", items: [{ name: "李果紅", prices: { M: 0, L: 35 } }, { name: "深焙烏龍", prices: { M: 0, L: 35 } }, { name: "烏龍青", prices: { M: 0, L: 35 } }, { name: "不知青", prices: { M: 0, L: 35 } }, { name: "熟藏金萱", prices: { M: 0, L: 35 } }, { name: "黃金芯芽", prices: { M: 0, L: 45 } }, { name: "蕎寶茶", prices: { M: 0, L: 45 } }]},
+            { category: "特調", items: [{ name: "蘋果紅", prices: { M: 50, L: 55 } }, { name: "蘋果寒天凍", prices: { M: 0, L: 75 } }, { name: "冬瓜玉露", prices: { M: 30, L: 40 } }, { name: "鮮檸檬冬瓜", prices: { M: 40, L: 55 } }, { name: "膠原戀檸C", prices: { M: 0, L: 55 } }, { name: "珍椰金萱", prices: { M: 0, L: 55 } }, { name: "鮮檸青", prices: { M: 50, L: 55 } }, { name: "戀檸不知青", prices: { M: 0, L: 55 } }, { name: "鮮檸蘆薈薈", prices: { M: 0, L: 65 } }, { name: "貴妃紅", prices: { M: 0, L: 65 } }, { name: "膠原貴妃", prices: { M: 0, L: 75 } }]},
+            { category: "輕鹽奶霜", items: [{ name: "跳跳糖奶霜香片", prices: { M: 0, L: 75 } }, { name: "奶霜香片", prices: { M: 0, L: 65 } }, { name: "奶霜李果紅", prices: { M: 0, L: 65 } }, { name: "奶霜焙烏龍", prices: { M: 0, L: 65 } }, { name: "奶霜金萱", prices: { M: 0, L: 65 } }]},
+            { category: "鮮奶", items: [{ name: "沐嵐鮮奶紅", prices: { M: 50, L: 65 } }, { name: "深焙鮮奶烏", prices: { M: 55, L: 65 } }, { name: "半熟鮮奶茶", prices: { M: 60, L: 70 } }, { name: "黑糖珍珠鮮奶", prices: { M: 60, L: 75 } }, { name: "靜岡抹茶鮮", prices: { M: 60, L: 75 } }]},
+            { category: "奶茶", items: [{ name: "珍珠奶茶", prices: { M: 0, L: 55 } }, { name: "沐嵐奶茶", prices: { M: 45, L: 55 } }, { name: "深焙烏龍奶", prices: { M: 45, L: 55 } }, { name: "半熟奶茶", prices: { M: 0, L: 60 } }, { name: "熊貓奶茶", prices: { M: 0, L: 65 } }]},
+            { category: "期間限定", items: [{ name: "綠豆冰沙", prices: { M: 0, L: 55 } }, { name: "綠豆牛奶冰沙", prices: { M: 0, L: 70 } }]}
+        ];
+        const ADDONS = [
+            { name: "無", price: 0 }, { name: "珍珠", price: 10 }, { name: "黑糖珍珠", price: 10 }, { name: "茶凍", price: 10 }, { name: "玫瑰膠原", price: 10 }, { name: "椰果", price: 10 }, { name: "蘆薈", price: 10 }, { name: "寒天", price: 15 }
+        ];
+        const SUGAR_LEVELS = ["正常", "少糖", "半糖", "微糖", "無糖"];
+        const ICE_LEVELS = ["正常", "少冰", "微冰", "去冰", "溫", "熱"];
+
+        // --- Google Apps Script 網址 ---
+        // 請將剛剛部署複製的 Web App 網址貼在下方引號內：
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyG2jukPtNlh-5ekaRzhpg4-Vgq6ORylmv7TnU6FWdR16s2Em08Ek5BjMZ7ciyWhhf6Ew/exec";
+
+        // --- 單機模式儲存配置 ---
+        let orders = [];
+        
+        let currentSeat = "1";
+        let currentCategory = MENU_DATA[0].category;
+        let currentItem = MENU_DATA[0].items[0].name;
+        let currentSize = "L";
+        let currentSugar = "半糖";
+        let currentIce = "微冰";
+        let currentAddon = "無";
+
+        function loadLocalData() {
+            const data = localStorage.getItem('chage_orders_local');
+            if (data) {
+                orders = JSON.parse(data);
+            }
+            renderAll();
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('chage_orders_local', JSON.stringify(orders));
+            renderAll();
+        }
+
+        window.onload = () => {
+            initSeatGrid();
+            initDropdowns();
+            initCustomOptions();
+            
+            // 綁定事件
+            document.getElementById('add-order-btn').onclick = addOrder;
+            document.getElementById('copy-summary-btn').onclick = copySummary;
+            document.getElementById('nav-order').onclick = () => showTab('order');
+            document.getElementById('nav-summary').onclick = () => showTab('summary');
+            document.getElementById('nav-export').onclick = () => {
+                window.open('https://docs.google.com/spreadsheets/d/1ShrMhNDCIZJkkKhx1GaU3NP2IaXPIIN7r4zFqXCXIIQ/edit?usp=sharing', '_blank');
+            };
+            document.getElementById('clear-data-btn-sidebar').onclick = () => document.getElementById('clear-modal').classList.remove('hidden');
+            document.getElementById('clear-data-btn-summary').onclick = () => document.getElementById('clear-modal').classList.remove('hidden');
+            document.getElementById('cancel-clear').onclick = () => document.getElementById('clear-modal').classList.add('hidden');
+            document.getElementById('confirm-clear').onclick = clearAllOrders;
+
+            // 隱藏載入畫面並讀取本機資料
+            document.getElementById('loading-screen').classList.add('hidden');
+            loadLocalData();
+            lucide.createIcons();
+        };
+
+        // --- 核心邏輯 ---
+        function initSeatGrid() {
+            const grid = document.getElementById('seat-grid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= 30; i++) {
+                const btn = document.createElement('button');
+                btn.innerText = i;
+                btn.id = `seat-${i}`;
+                btn.className = getSeatBtnClass(i.toString());
+                btn.onclick = () => selectSeat(i.toString());
+                grid.appendChild(btn);
+            }
+        }
+
+        function getSeatBtnClass(seatNum) {
+            const isSelected = currentSeat === seatNum;
+            const hasOrder = orders.some(o => o.seat === seatNum);
+            let base = "seat-btn py-3 text-sm rounded-xl border-2 transition-all relative font-bold ";
+            if (isSelected) return base + "bg-emerald-700 text-white border-emerald-700 shadow-md scale-105 z-10";
+            if (hasOrder) return base + "bg-amber-100 text-amber-800 border-amber-300";
+            return base + "bg-white text-slate-600 border-slate-100";
+        }
+
+        function selectSeat(seatNum) {
+            currentSeat = seatNum;
+            for (let i = 1; i <= 30; i++) {
+                const btn = document.getElementById(`seat-${i}`);
+                if (btn) btn.className = getSeatBtnClass(i.toString());
+            }
+        }
+
+        function initDropdowns() {
+            const catSelect = document.getElementById('category-select');
+            const itemSelect = document.getElementById('item-select');
+            MENU_DATA.forEach(cat => {
+                const opt = document.createElement('option'); opt.value = cat.category; opt.innerText = cat.category;
+                catSelect.appendChild(opt);
+            });
+            catSelect.onchange = (e) => {
+                currentCategory = e.target.value;
+                const items = MENU_DATA.find(c => c.category === currentCategory).items;
+                itemSelect.innerHTML = '';
+                items.forEach(it => {
+                    const opt = document.createElement('option'); opt.value = it.name; opt.innerText = it.name;
+                    itemSelect.appendChild(opt);
+                });
+                currentItem = items[0].name;
+                updatePrice();
+            };
+            itemSelect.onchange = (e) => { currentItem = e.target.value; updatePrice(); };
+            catSelect.dispatchEvent(new Event('change'));
+        }
+
+        function initCustomOptions() {
+            const setup = (id, list, cur, set) => {
+                const container = document.getElementById(id);
+                if (!container) return;
+                container.innerHTML = '';
+                list.forEach(val => {
+                    const label = typeof val === 'string' ? val : val.name;
+                    const btn = document.createElement('button');
+                    btn.innerText = label;
+                    btn.className = `px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all ${cur === label ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-white text-slate-500 border-slate-100'}`;
+                    btn.onclick = () => { set(label); setup(id, list, label, set); updatePrice(); };
+                    container.appendChild(btn);
+                });
+            };
+            setup('sugar-options', SUGAR_LEVELS, currentSugar, (v) => currentSugar = v);
+            setup('ice-options', ICE_LEVELS, currentIce, (v) => currentIce = v);
+            setup('addon-options', ADDONS, currentAddon, (v) => currentAddon = v);
+            
+            const sizeM = document.getElementById('size-m');
+            const sizeL = document.getElementById('size-l');
+            if (sizeM) sizeM.onclick = () => { currentSize = "M"; updatePrice(); };
+            if (sizeL) sizeL.onclick = () => { currentSize = "L"; updatePrice(); };
+        }
+
+        function updatePrice() {
+            const item = MENU_DATA.find(c => c.category === currentCategory).items.find(i => i.name === currentItem);
+            const btnM = document.getElementById('size-m'), btnL = document.getElementById('size-l');
+            if (item.prices.M === 0) { btnM.disabled = true; btnM.style.opacity = "0.3"; currentSize = "L"; } 
+            else { btnM.disabled = false; btnM.style.opacity = "1"; }
+            btnM.className = `flex-1 py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${currentSize === 'M' ? 'bg-emerald-50 border-emerald-600 text-emerald-800' : 'bg-white border-slate-100 text-slate-400'}`;
+            btnL.className = `flex-1 py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${currentSize === 'L' ? 'bg-emerald-50 border-emerald-600 text-emerald-800' : 'bg-white border-slate-100 text-slate-400'}`;
+            document.getElementById('price-m').innerText = item.prices.M || '無';
+            document.getElementById('price-l').innerText = item.prices.L;
+            const base = item.prices[currentSize] || item.prices.L;
+            const add = ADDONS.find(a => a.name === currentAddon).price;
+            document.getElementById('total-unit-price').innerText = `$${base + add}`;
+        }
+
+        async function addOrder() {
+            const btn = document.getElementById('add-order-btn');
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            // 變更按鈕為轉圈動畫
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 儲存中...';
+            lucide.createIcons();
+
+            try {
+                const item = MENU_DATA.find(c => c.category === currentCategory).items.find(i => i.name === currentItem);
+                const price = (item.prices[currentSize] || item.prices.L) + ADDONS.find(a => a.name === currentAddon).price;
+                
+                const newOrder = {
+                    id: Date.now().toString(),
+                    seat: currentSeat, category: currentCategory, itemName: currentItem,
+                    size: currentSize, sugar: currentSugar, ice: currentIce, addon: currentAddon,
+                    price: price, timestamp: Date.now()
+                };
+                
+                // 1. 本機儲存 (即使沒網路也能確保資料保留在設備上)
+                orders.push(newOrder);
+                saveLocalData();
+                
+                // 2. 傳送至 Google Apps Script
+                if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.startsWith("https://script.google.com")) {
+                    try {
+                        await fetch(APPS_SCRIPT_URL, {
+                            method: 'POST',
+                            body: JSON.stringify(newOrder),
+                            // 使用 text/plain 可以繞過瀏覽器嚴格的 CORS 預檢限制
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                        });
+                        showMessage('已儲存並同步至 Google 試算表');
+                    } catch (e) {
+                        console.error("GAS Sync Error:", e);
+                        showMessage('已儲存至本機 (試算表同步失敗)');
+                    }
+                } else {
+                    showMessage('訂單已儲存至本機 (未設定試算表)');
+                }
+            } catch (err) { 
+                showMessage('儲存失敗'); 
+                console.error(err); 
+            } finally { 
+                // 恢復按鈕狀態
+                btn.disabled = false; 
+                btn.innerHTML = originalText;
+                lucide.createIcons();
+            }
+        }
+
+        function clearAllOrders() {
+            orders = [];
+            saveLocalData();
+            document.getElementById('clear-modal').classList.add('hidden');
+            showMessage('資料已清空');
+        }
+
+        function renderAll() {
+            const feed = document.getElementById('live-feed');
+            feed.innerHTML = '';
+            orders.sort((a,b) => b.timestamp - a.timestamp).forEach(o => {
+                const div = document.createElement('div');
+                div.className = "p-4 bg-slate-800/50 rounded-2xl border border-slate-700 relative group";
+                div.innerHTML = `<button onclick="window.deleteOrder('${o.id}')" class="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="w-3 h-3"></i></button><div class="flex justify-between items-start mb-1"><span class="font-black text-emerald-400 text-xs">${o.seat} 號</span><span class="font-black text-white text-sm">$${o.price}</span></div><div class="text-sm font-bold truncate">${o.itemName}</div><div class="text-[10px] text-slate-500 uppercase">${o.size}/${o.sugar}/${o.ice}${o.addon!=='無'?' + '+o.addon:''}</div>`;
+                feed.appendChild(div);
+            });
+            const totalAmt = orders.reduce((s, o) => s + o.price, 0);
+            document.getElementById('header-badge').innerText = `${orders.length} 杯`;
+            document.getElementById('sidebar-count').innerText = `${orders.length} 杯`;
+            document.getElementById('total-amount-display').innerText = `$${totalAmt}`;
+            document.getElementById('summary-count').innerText = orders.length;
+            document.getElementById('summary-amount').innerText = `$${totalAmt}`;
+
+            for (let i = 1; i <= 30; i++) {
+                const btn = document.getElementById(`seat-${i}`);
+                if (btn) {
+                    btn.className = getSeatBtnClass(i.toString());
+                    const sCount = orders.filter(o => o.seat === i.toString()).length;
+                    let dot = btn.querySelector('.order-dot');
+                    if (sCount > 0) {
+                        if (!dot) {
+                            dot = document.createElement('span');
+                            dot.className = "order-dot absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[9px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-black";
+                            btn.appendChild(dot);
+                        }
+                        dot.innerText = sCount;
+                    } else if (dot) dot.remove();
+                }
+            }
+            renderSummaryTable();
+            lucide.createIcons();
+        }
+
+        function renderSummaryTable() {
+            const summary = {};
+            orders.forEach(o => {
+                const k = `${o.itemName} (${o.size}) [${o.sugar}/${o.ice}]${o.addon!=='無'?' + '+o.addon:''}`;
+                if(!summary[k]) summary[k] = { count: 0, price: o.price };
+                summary[k].count++;
+            });
+            const list = document.getElementById('summary-list');
+            list.innerHTML = '';
+            Object.entries(summary).forEach(([k, d]) => {
+                list.innerHTML += `<div class="p-5 flex justify-between items-center"><div><div class="font-bold text-slate-800 text-sm">${k}</div><div class="text-[10px] text-slate-400">單價 $${d.price}</div></div><div class="text-xl font-black text-emerald-700">x ${d.count}</div></div>`;
+            });
+            const table = document.getElementById('individual-table');
+            table.innerHTML = '';
+            orders.sort((a,b) => parseInt(a.seat) - parseInt(b.seat)).forEach(o => {
+                table.innerHTML += `<tr class="text-sm"><td class="px-6 py-4 font-black text-emerald-700">${o.seat}</td><td class="px-6 py-4 font-bold text-slate-800">${o.itemName}<br><small class="text-slate-400 uppercase text-[9px]">${o.size}/${o.sugar}/${o.ice} ${o.addon!=='無'?'+'+o.addon:''}</small></td><td class="px-6 py-4 text-right font-black text-slate-700">$${o.price}</td></tr>`;
+            });
+        }
+
+        // --- 輔助工具 ---
+        function showTab(id) {
+            document.querySelectorAll('main > div').forEach(d => d.classList.add('hidden'));
+            document.getElementById(`view-${id}`).classList.remove('hidden');
+            document.querySelectorAll('nav button').forEach(b => { 
+                b.classList.remove('bg-emerald-700', 'text-white', 'shadow-md', 'font-bold'); 
+                b.classList.add('text-slate-400'); 
+            });
+            const activeBtn = document.getElementById(`nav-${id}`);
+            activeBtn.classList.add('bg-emerald-700', 'text-white', 'shadow-md', 'font-bold');
+            activeBtn.classList.remove('text-slate-400');
+            lucide.createIcons();
+        }
+
+        function showMessage(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        function copyToClipboard(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            el.setAttribute('readonly', '');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showMessage('複製成功！');
+        }
+
+        function copySummary() { 
+            let t = `茶聚統計結果 (${orders.length}杯)：\n`;
+            document.querySelectorAll('#summary-list > div').forEach(d => {
+                t += `${d.querySelector('.font-bold').innerText} x ${d.querySelector('.text-xl').innerText.replace('x ','')}\n`;
+            });
+            t += `總金額：$${orders.reduce((s,o)=>s+o.price, 0)}`;
+            copyToClipboard(t);
+        }
+
+        window.deleteOrder = (id) => {
+            if (confirm('確定刪除此筆訂單？')) {
+                orders = orders.filter(o => o.id !== id);
+                saveLocalData();
+                showMessage('已刪除');
+            }
+        };
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2003/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1rem; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 pb-20 overflow-x-hidden">
+
+    <!-- Loading -->
+    <div id="loading-screen" class="fixed inset-0 z-[100] bg-emerald-50 flex items-center justify-center">
+        <div class="text-center">
+            <i data-lucide="cloud" class="w-12 h-12 text-emerald-600 mx-auto mb-2 animate-bounce"></i>
+            <p id="loading-text" class="text-emerald-800 font-bold">同步雲端資料中...</p>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full text-xs font-bold shadow-2xl transition-all transform translate-y-20 opacity-0 z-[60]">通知</div>
+
+    <header class="bg-emerald-800 text-white p-5 sticky top-0 z-40 shadow-lg">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i data-lucide="smartphone" class="w-6 h-6"></i>
+                <div>
+                    <h1 class="text-lg font-black tracking-tight">茶聚單機訂購</h1>
+                    <div class="flex items-center gap-1.5 text-[10px] text-emerald-200 uppercase font-bold">
+                        <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                        資料存於本裝置
+                    </div>
+                </div>
+            </div>
+            <span id="header-badge" class="bg-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-600">0 杯</span>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-4">
+        <nav class="flex mb-6 bg-white rounded-2xl shadow-sm border border-slate-200 p-1 sticky top-20 z-30">
+            <button id="nav-order" class="flex-1 py-3 flex items-center justify-center gap-2 rounded-xl bg-emerald-700 text-white shadow-md font-bold text-xs"><i data-lucide="shopping-cart" class="w-4 h-4"></i>我要點餐</button>
+            <button id="nav-summary" class="flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-slate-400 text-xs"><i data-lucide="bar-chart-3" class="w-4 h-4"></i>統計/發放</button>
+            <button id="nav-export" class="flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-slate-400 text-xs"><i data-lucide="external-link" class="w-4 h-4"></i>查看訂單</button>
+        </nav>
+
+        <!-- View 1: Order -->
+        <div id="view-order" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-6">
+                <section class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                    <h2 class="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">選擇您的座號</h2>
+                    <div id="seat-grid" class="grid grid-cols-6 sm:grid-cols-10 gap-2"></div>
+                </section>
+                <section class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <select id="category-select" class="p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm"></select>
+                        <select id="item-select" class="p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm"></select>
+                    </div>
+                    <div class="flex gap-3">
+                        <button id="size-m" class="flex-1 py-4 rounded-2xl border-2 flex flex-col items-center">
+                            <span class="text-xs font-bold">中杯 (M)</span>
+                            <span id="price-m" class="text-sm font-black opacity-60"></span>
+                        </button>
+                        <button id="size-l" class="flex-1 py-4 rounded-2xl border-2 flex flex-col items-center">
+                            <span class="text-xs font-bold">大杯 (L)</span>
+                            <span id="price-l" class="text-sm font-black opacity-60"></span>
+                        </button>
+                    </div>
+                    <div class="space-y-4 pt-2">
+                        <div id="sugar-options" class="flex flex-wrap gap-2"></div>
+                        <div id="ice-options" class="flex flex-wrap gap-2"></div>
+                        <div id="addon-options" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="bg-emerald-50/50 p-4 rounded-2xl flex justify-between items-center border border-emerald-100">
+                        <span class="text-xs font-bold text-emerald-700">單杯小計</span>
+                        <span id="total-unit-price" class="text-2xl font-black text-emerald-800">$0</span>
+                    </div>
+                    <button id="add-order-btn" class="w-full bg-emerald-700 text-white py-5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                        <i data-lucide="plus" class="w-5 h-5"></i>確認儲存 (同步試算表)
+                    </button>
+                </section>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-slate-900 text-white p-6 rounded-3xl shadow-xl sticky top-44">
+                    <div class="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                        <h2 class="text-xs font-black text-emerald-400 tracking-widest uppercase">即時動態</h2>
+                        <div class="flex items-center gap-3">
+                            <button id="clear-data-btn-sidebar" class="text-slate-500 hover:text-red-400 transition-colors" title="清除所有紀錄">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                            <span id="sidebar-count" class="text-[10px] font-bold">0 杯</span>
+                        </div>
+                    </div>
+                    <div id="live-feed" class="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"></div>
+                    <div class="mt-8 pt-6 border-t border-slate-800 flex justify-between items-end">
+                        <span class="text-slate-500 text-[10px] font-black uppercase">總額</span>
+                        <span id="total-amount-display" class="text-3xl font-black text-emerald-400">$0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 2: Summary -->
+        <div id="view-summary" class="space-y-6 hidden">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-8 rounded-3xl shadow-sm text-center border border-slate-100">
+                    <p class="text-slate-400 text-[10px] font-black uppercase mb-1">杯數合計</p>
+                    <p id="summary-count" class="text-4xl font-black text-emerald-700">0</p>
+                </div>
+                <div class="bg-white p-8 rounded-3xl shadow-sm text-center border border-slate-100">
+                    <p class="text-slate-400 text-[10px] font-black uppercase mb-1">預估總額</p>
+                    <p id="summary-amount" class="text-4xl font-black text-emerald-700">$0</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-100">
+                <div class="p-5 bg-slate-50 flex justify-between items-center border-b border-slate-100">
+                    <h3 class="font-black text-xs uppercase tracking-widest text-slate-800">點餐匯總 (店家報單用)</h3>
+                    <button id="copy-summary-btn" class="text-[10px] font-black bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-1"><i data-lucide="copy" class="w-3 h-3"></i>複製統計</button>
+                </div>
+                <div id="summary-list" class="divide-y divide-slate-50"></div>
+            </div>
+            <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-100">
+                <div class="p-5 bg-slate-50"><h3 class="font-black text-xs uppercase tracking-widest text-slate-800">座號明細 (發收飲料用)</h3></div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50/50">
+                            <tr class="text-[10px] font-black text-slate-400 border-b border-slate-100">
+                                <th class="px-6 py-4">座號</th><th class="px-6 py-4">品項</th><th class="px-6 py-4 text-right">單價</th>
+                            </tr>
+                        </thead>
+                        <tbody id="individual-table" class="divide-y divide-slate-50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button id="clear-data-btn-summary" class="w-full bg-red-50 text-red-500 py-4 rounded-2xl font-black flex items-center justify-center gap-2 border border-red-100 hover:bg-red-100 transition-colors">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i> 重新開始 (清除所有紀錄)
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="clear-modal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center hidden p-6 z-[100] backdrop-blur-sm">
+        <div class="bg-white rounded-[40px] p-10 text-center space-y-6 max-w-xs shadow-2xl">
+            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><i data-lucide="alert-triangle" class="w-8 h-8"></i></div>
+            <h3 class="font-black text-xl">清空資料？</h3>
+            <p class="text-slate-500 text-sm">這會移除儲存於本機的所有訂單。請確認是否要重新開始。</p>
+            <div class="flex gap-2">
+                <button id="confirm-clear" class="flex-1 bg-red-600 text-white py-4 rounded-2xl font-bold">確定</button>
+                <button id="cancel-clear" class="flex-1 bg-slate-100 text-slate-500 py-4 rounded-2xl font-bold">取消</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
